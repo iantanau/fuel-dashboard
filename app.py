@@ -1,122 +1,88 @@
-# app.py
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sqlalchemy.orm import sessionmaker
 from models import init_db, Station, Price
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 app = Flask(__name__)
-# 允许所有来源跨域访问 (在生产环境中应该限制具体域名，但开发时为了方便先全部允许)
-CORS(app) 
+# 允许所有跨域请求
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # 初始化数据库连接
 engine = init_db()
 Session = sessionmaker(bind=engine)
 
 def get_db_session():
-    """每次请求创建一个新的会话"""
     return Session()
-
-# ---------------- API 接口定义 ----------------
 
 @app.route('/')
 def home():
-    """根路由，测试 API 是否活着"""
-    return jsonify({
-        "status": "online", 
-        "message": "Welcome to Fuel Dashboard API",
-        "time": datetime.now()
-    })
+    return jsonify({"status": "online", "time": datetime.now()})
 
+# --- 核心接口 1: 获取地图数据 (含所有油号详情) ---
 @app.route('/api/stations', methods=['GET'])
 def get_stations():
-    """
-    获取所有加油站的信息 + 最新价格
-    用于前端地图展示
-    """
     session = get_db_session()
     try:
-        # 查询所有加油站
+        # 1. 查所有站点
         stations = session.query(Station).all()
         
+        # 2. 查最近 24 小时的所有价格 (一次性查出，优化性能)
+        yesterday = datetime.now() - timedelta(hours=24)
+        recent_prices = session.query(Price).filter(Price.captured_at >= yesterday).all()
+
+        # 3. 在内存中将价格按站点归类
+        # 结构: { 'station_code_1': [PriceObj, PriceObj...], ... }
+        price_map = defaultdict(list)
+        for p in recent_prices:
+            if p.price and p.price > 1: # 过滤脏数据
+                price_map[p.station_code].append({
+                    "type": p.fuel_type,
+                    "price": p.price,
+                    "updated": p.last_updated
+                })
+
+        # 4. 组装返回给前端的数据
         result = []
         for s in stations:
-            # 简单粗暴的方法：为每个加油站查一次最新价格
-            # 在数据量巨大时这叫 "N+1 查询问题"，解决方案：
-            # 1. 使用 SQLAlchemy 的 joinedload 进行预加载 (Eager Loading)
-            # 2. 用原生的 SQL JOIN 语句一次性把 Station 和最新 Price 查出来
-            latest_price_entry = session.query(Price)\
-                .filter_by(station_code=s.code)\
-                .order_by(Price.captured_at.desc())\
-                .first()
+            station_prices = price_map.get(s.code, [])
             
-            current_price = None
-            if latest_price_entry and latest_price_entry.price > 10:
-                current_price = latest_price_entry.price
-
-            fuel_type = latest_price_entry.fuel_type if latest_price_entry else None
-            last_updated = latest_price_entry.last_updated if latest_price_entry else None
+            # 计算一个“主要价格”用于在地图图钉上直接显示 (优先显示 E10)
+            display_price = "N/A"
+            for p in station_prices:
+                if p['type'] == 'E10':
+                    display_price = p['price']
+                    break
+            # 如果没有 E10，就显示列表里的第一个价格
+            if display_price == "N/A" and station_prices:
+                display_price = station_prices[0]['price']
 
             result.append({
                 "code": s.code,
                 "name": s.name,
-                "brand": s.brand,
                 "address": s.address,
                 "latitude": s.latitude,
                 "longitude": s.longitude,
-                "current_price": current_price,
-                "fuel_type": fuel_type,
-                "last_updated": last_updated
+                "brand": s.brand,
+                "prices": station_prices,     # 这是一个列表，包含该站所有油价
+                "display_price": display_price # 这是一个数字，用于地图标点简略显示
             })
         
         return jsonify(result)
     finally:
         session.close()
 
-@app.route('/api/station/<code_id>/history', methods=['GET'])
-def get_station_history(code_id):
-    """
-    获取指定加油站的价格历史
-    用于前端画折线图
-    """
-    session = get_db_session()
-    try:
-        # 查询该站点过去 7 天的数据
-        week_ago = datetime.now() - timedelta(days=7)
-        
-        prices = session.query(Price)\
-            .filter_by(station_code=code_id)\
-            .filter(Price.captured_at >= week_ago)\
-            .order_by(Price.captured_at.asc())\
-            .all()
-        
-        history = []
-        for p in prices:
-            history.append({
-                "price": p.price,
-                "captured_at": p.captured_at.strftime("%Y-%m-%d %H:%M"), # 格式化时间
-                "fuel_type": p.fuel_type
-            })
-            
-        return jsonify({
-            "station_code": code_id,
-            "history": history
-        })
-    finally:
-        session.close()
-
+# --- 核心接口 2: 排行榜 (支持筛选) ---
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    """
-    获取统计信息 (例如：当前最低价)
-    """
     session = get_db_session()
     try:
+        # 获取前端传来的参数，默认为 E10
+        # 例如: /api/stats?fuel_type=Diesel
+        target_fuel = request.args.get('fuel_type', 'E10')
 
-        # 设置过滤条件
-        target_fuel = "E10"
-
-        # 找大于10cent的最便宜的 5 个
+        # 查询该油号最便宜的 5 个
         cheapest = session.query(Price)\
             .filter(Price.price > 10)\
             .filter(Price.fuel_type == target_fuel)\
@@ -125,28 +91,32 @@ def get_stats():
             .all()
         
         result = []
+        # 用来记录这批数据里最新的时间
+        latest_update = None 
+
         for p in cheapest:
-            # 关联查询站点名字
             station = session.query(Station).filter_by(code=p.station_code).first()
+            
+            # 记录最新的时间戳
+            if latest_update is None or (p.last_updated and p.last_updated > latest_update):
+                latest_update = p.last_updated
+
             result.append({
                 "price": p.price,
                 "fuel_type": p.fuel_type,
                 "station": station.name if station else "Unknown",
                 "address": station.address if station else "",
-                "lat": station.latitude if station else 0,
-                "lng": station.longitude if station else 0
+                "updated": p.last_updated
             })
             
         return jsonify({
-            "title": f"Top 5 Cheapest {target_fuel}",       # 标题
-            "cheapest_5": result,                           # 最便宜的 5 个加油站
-            "total_records": session.query(Price).count()   # 总记录数
+            "title": f"Cheapest {target_fuel}",
+            "cheapest_5": result,
+            "data_updated_at": latest_update # 返回给前端显示
         })
     finally:
         session.close()
 
 if __name__ == '__main__':
-    # 启动 Flask 服务
-    # debug=True 意味着你修改代码保存后，服务器会自动重启，方便开发
-    print("🚀 Flask API 服务器启动中...")
+    # 启动后端
     app.run(debug=True, port=5000)

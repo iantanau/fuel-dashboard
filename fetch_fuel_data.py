@@ -3,6 +3,10 @@ import time
 import uuid
 from datetime import datetime
 import os
+from dotenv import load_dotenv
+
+# 加载 .env 文件中的变量
+load_dotenv() 
 
 # ================= 配置区域 =================
 # API Key 和 Secret
@@ -63,7 +67,7 @@ def fetch_fuel_data(token):
     }
 
     params = {
-        "fueltype": "E10",    # 只取 E10
+        # "fueltype": "E10",    # 只取 E10
         "latitude": -33.8688, # 悉尼
         "longitude": 151.2093,
         "radius": 5

@@ -21,6 +21,26 @@ A full-stack data visualization dashboard tracking real-time fuel prices across 
 *   **Database:** SQLite (Dev) / PostgreSQL (Prod ready)
 *   **Data Source:** NSW FuelCheck API
 
+## ⚙️ Configuration
+
+This project requires an API Key from the NSW Government.
+
+1.  **Get Credentials:** Sign up at the [NSW API Portal](https://api.nsw.gov.au/) and subscribe to the "FuelCheck API".
+2.  **Setup Environment:**
+    Duplicate the example configuration file:
+    ```bash
+    cp .env.example .env
+    ```
+3.  **Add Keys:**
+    Open the newly created `.env` file and paste your credentials:
+    ```text
+    NSW_API_KEY=your_actual_api_key
+    NSW_API_SECRET=your_actual_api_secret
+    ```
+
+> **Note:** The `.env` file is git-ignored to protect your secrets.
+
+
 ## 📦 How to Run
 
 ### 1. Backend Setup
@@ -30,7 +50,7 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install flask flask-cors sqlalchemy requests apscheduler
+pip install flask flask-cors sqlalchemy requests apscheduler python-dotenv
 
 # Run the API server
 python app.py

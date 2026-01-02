@@ -47,6 +47,10 @@ def get_stations():
         result = []
         for s in stations:
             station_prices = price_map.get(s.code, [])
+
+            # 如果这个加油站没有 24小时内 的价格数据，直接跳过！
+            if not station_prices:
+                continue
             
             # 计算一个“主要价格”用于在地图图钉上直接显示 (优先显示 E10)
             display_price = "N/A"

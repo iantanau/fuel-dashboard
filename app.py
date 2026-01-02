@@ -29,7 +29,7 @@ def get_stations():
         stations = session.query(Station).all()
         
         # 2. 查最近 24 小时的所有价格 (一次性查出，优化性能)
-        yesterday = datetime.now() - timedelta(hours=24)
+        yesterday = datetime.utcnow() - timedelta(hours=24)
         recent_prices = session.query(Price).filter(Price.captured_at >= yesterday).all()
 
         # 3. 在内存中将价格按站点归类
@@ -105,7 +105,10 @@ def get_stats():
                 "fuel_type": p.fuel_type,
                 "station": station.name if station else "Unknown",
                 "address": station.address if station else "",
-                "updated": p.last_updated
+                "lat": station.latitude if station else 0,
+                "lng": station.longitude if station else 0,
+                "updated": p.last_updated,
+                "code": p.station_code
             })
         
         # 查询整个数据库中，最新的“抓取时间” (captured_at)
@@ -114,7 +117,7 @@ def get_stats():
             .first()
         
         # 提取时间 (如果是空库，就用当前时间)
-        system_time = latest_capture[0] if latest_capture else datetime.now()
+        system_time = latest_capture[0] if latest_capture else datetime.utcnow()
 
         return jsonify({
             "title": f"Cheapest {target_fuel}",

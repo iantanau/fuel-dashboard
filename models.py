@@ -1,7 +1,7 @@
 # models.py
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship
-from datetime import datetime, timezone
+from datetime import datetime
 
 # 1. 定义基类
 Base = declarative_base()
@@ -33,7 +33,7 @@ class Price(Base):
     fuel_type = Column(String)                                  # 如 "E10", "P98"
     price = Column(Float)                                       # 如 179.9
     last_updated = Column(DateTime)                             # NSW API 提供的更新时间
-    captured_at = Column(DateTime, default=lambda: datetime.now(timezone.utc)) # 抓取的时间
+    captured_at = Column(DateTime, default=lambda: datetime.utcnow()) # 抓取的时间
 
     # 关联关系
     station = relationship("Station", back_populates="prices")

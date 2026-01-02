@@ -2,7 +2,7 @@
 import json
 from sqlalchemy.orm import sessionmaker
 from models import init_db, Station, Price
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 
 def load_data_to_db():
     # 1. 初始化数据库连接
@@ -24,7 +24,7 @@ def load_data_to_db():
     # NSW API 返回的结构里，stations 是一个列表
     
     # 策略：先清理掉 7 天前的价格数据，避免数据库膨胀
-    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
     deleted_count = session.query(Price).filter(Price.captured_at < seven_days_ago).delete()
     if deleted_count:
         print(f"Pruned {deleted_count} old price records older than 7 days.")

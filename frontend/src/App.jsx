@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Fuel, MapPin, TrendingDown, Clock, RefreshCw } from 'lucide-react';
+import { Fuel, MapPin, TrendingDown, Clock, RefreshCw, ChevronRight } from 'lucide-react';
 import MapComponent from './MapComponent';
 
 function App() {
@@ -10,8 +10,11 @@ function App() {
   // 核心状态：用户当前选择的燃油类型
   const [selectedFuel, setSelectedFuel] = useState("E10");
 
+  // 当前地图聚焦的加油站坐标
+  const [focusedStation, setFocusedStation] = useState(null);
+
   // 支持的燃油列表 (可以根据需要增减)
-  const fuelTypes = ["E10", "U91", "P95", "P98", "Diesel", "LPG", "EV"];
+  const fuelTypes = ["E10", "U91", "P95", "P98", "PDL", "DL", "LPG", "EV"];
 
   // 获取数据的函数
   const fetchStats = () => {
@@ -33,122 +36,162 @@ function App() {
     fetchStats();
   }, [selectedFuel]);
 
-  // 时间格式化并转换当地时区工具
+// 时间格式化并转换当地时区工具
   const formatTime = (isoString) => {
     if (!isoString) return "Waiting Data...";
     
-    // 1. 创建 Date 对象
-    let dateString = new Date(isoString);
-    // 处理没有时区标识的情况，全部假设为 UTC 时间
+    // 1. 保留字符串格式
+    let dateString = isoString; 
+    
+    // 2. 只有当它确实是字符串且没有 Z 时，才补 Z (强制 UTC)
     if (typeof dateString === 'string' && !dateString.endsWith('Z')) {
         dateString += 'Z';
     }
 
-    // 2. 转换
+    // 3. 转换
     let date = new Date(dateString);
     if (isNaN(date.getTime())) return isoString;
 
-    // 2. 使用 Intl.DateTimeFormat 获取浏览器所在地的本地格式
-    return new Intl.DateTimeFormat('en-AU', {
-      month: '2-digit', 
-      day: '2-digit',
+    // 4. 使用 Intl.DateTimeFormat 获取浏览器所在地的本地格式
+    return date.toLocaleString('en-AU', {
+      month: 'short', 
+      day: 'numeric',
       hour: '2-digit', 
       minute: '2-digit',
       second: '2-digit',
       hour12: false, 
-      timeZoneName: 'short'
-    }).format(date);
+      timeZoneName: 'short' 
+    });
+  };
+
+  // 点击排行榜某一项的处理函数
+  const handleStationClick = (item) => {
+      // 这里的 item 是排行榜里的数据，通常只有 address, lat, lng, price
+      // 把坐标传给 state
+      if (item.lat && item.lng) {
+          setFocusedStation({ lat: item.lat, lng: item.lng, code: item.code });
+      }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
+    // 使用 h-screen 让页面铺满屏幕，不出现滚动条 (除非内容过多)
+    <div className="flex flex-col lg:flex-row h-screen bg-gray-50 overflow-hidden font-sans">
       
-      {/* --- 顶部控制栏 --- */}
-      <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-2">
-            <Fuel className="text-blue-600" />
-            NSW Fuel Watch
-          </h1>
-          {/* 显示更新时间 */}
-          <p className="text-sm text-gray-500 mt-2 flex items-center gap-1">
-            <Clock size={14} />
-            Latest Data Update: <span className="font-medium text-blue-600">{stats ? formatTime(stats.data_updated_at) : "--"}</span>
-          </p>
-        </div>
-
-        {/* 右侧：下拉菜单选择器 */}
-        <div className="mt-4 md:mt-0 flex items-center gap-3">
-            <label className="text-gray-600 text-sm font-medium">Select Fuel Type:</label>
-            <select 
-                value={selectedFuel}
-                onChange={(e) => setSelectedFuel(e.target.value)}
-                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 outline-none"
-            >
-                {fuelTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                ))}
-            </select>
-            
-            <button 
-                onClick={fetchStats}
-                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
-                title="Manual Refresh"
-            >
-                <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
-            </button>
-        </div>
-      </div>
-
-      {/* --- 主要内容区域 --- */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* ================= 左侧侧边栏 (Sidebar) ================= */}
+      <div className="w-full lg:w-96 flex flex-col bg-white shadow-xl z-10 border-r border-gray-200">
         
-        {/* 左侧：排行榜列表 */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 col-span-1 h-fit">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-               <TrendingDown className="text-green-500" />
-               {selectedFuel} Lowest Price List
-            </h2>
-          </div>
-
-          {loading ? (
-            <div className="space-y-4 animate-pulse">
-                {[1,2,3,4,5].map(i => <div key={i} className="h-12 bg-gray-100 rounded"></div>)}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {stats && stats.cheapest_5.length > 0 ? (
-                  stats.cheapest_5.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-200">
-                      <div className="overflow-hidden">
-                          <div className="font-semibold text-gray-800 truncate pr-2">{item.station}</div>
-                          <div className="text-xs text-gray-500 flex items-center gap-1 mt-1 truncate">
-                            <MapPin size={10} />
-                            {item.address}
-                          </div>
-                      </div>
-                      <div className="text-right whitespace-nowrap pl-2">
-                          <div className="text-xl font-bold text-green-600">{item.price}</div>
-                          <div className="text-[10px] text-gray-400">c/L</div>
-                      </div>
-                    </div>
-                ))
-              ) : (
-                  <div className="text-center py-8 text-gray-400">
-                      No {selectedFuel} price data available
-                  </div>
-              )}
-            </div>
-          )}
+        {/* 1. 顶部 Header */}
+        <div className="p-6 border-b border-gray-100">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <Fuel className="text-blue-600 fill-blue-50" size={28} />
+                NSW Fuel Watch
+            </h1>
+            <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                <Clock size={12} />
+                Update at: {stats ? formatTime(stats.data_updated_at) : "--"}
+            </p>
         </div>
 
-        {/* 右侧：地图组件 */}
-        <div className="bg-white p-1 rounded-xl shadow-lg border border-gray-100 col-span-1 lg:col-span-2 min-h-[600px] z-0 relative">
-          <MapComponent />
+        {/* 2. 控制区：油号选择 */}
+        <div className="p-6 pb-2">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">
+                Settings
+            </label>
+            <div className="flex gap-2">
+                <div className="relative flex-1">
+                    <select 
+                        value={selectedFuel}
+                        onChange={(e) => setSelectedFuel(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 appearance-none font-medium"
+                    >
+                        {fuelTypes.map(type => (
+                            <option key={type} value={type}>{type}</option>
+                        ))}
+                    </select>
+                    {/* 自定义下拉箭头 */}
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </div>
+                </div>
+                
+                <button 
+                    onClick={fetchStats}
+                    className="p-2.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                    title="Refresh Data"
+                >
+                    <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+                </button>
+            </div>
+        </div>
+
+        {/* 3. 排行榜列表 (可滚动) */}
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+            <div className="flex items-center justify-between mb-4 px-2">
+                <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <TrendingDown className="text-green-500" size={18} />
+                    Cheapest 5 Stations
+                </h2>
+                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded">
+                    {selectedFuel}
+                </span>
+            </div>
+
+            <div className="space-y-3">
+                {loading ? (
+                    [1,2,3,4,5].map(i => <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse"></div>)
+                ) : (
+                    stats && stats.cheapest_5.map((item, index) => (
+                        <div 
+                            key={index} 
+                            onClick={() => handleStationClick(item)} // 点击事件
+                            className="group bg-white border border-gray-100 rounded-xl p-3 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer relative overflow-hidden"
+                        >
+                            {/* 左侧蓝色条 */}
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-blue-500 transition-colors"></div>
+
+                            <div className="flex justify-between items-center pl-2">
+                                <div className="min-w-0 flex-1 mr-2">
+                                    <div className="font-semibold text-gray-800 truncate text-sm">
+                                        {index + 1}. {item.station}
+                                    </div>
+                                    <div className="text-xs text-gray-500 flex items-center gap-1 mt-1 truncate">
+                                        <MapPin size={10} />
+                                        {item.address}
+                                    </div>
+                                </div>
+                                <div className="text-right flex items-center gap-2">
+                                    <div>
+                                        <div className="text-lg font-bold text-green-600 leading-tight">{item.price}</div>
+                                        <div className="text-[10px] text-gray-400">c/L</div>
+                                    </div>
+                                    <ChevronRight size={16} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
+                
+                {!loading && stats && stats.cheapest_5.length === 0 && (
+                    <div className="text-center py-10 text-gray-400 text-sm">No data available</div>
+                )}
+            </div>
+        </div>
+        
+        {/* 底部版权 (可选) */}
+        <div className="p-4 border-t border-gray-100 text-[10px] text-center text-gray-400">
+            Powered by NSW FuelCheck API
         </div>
 
       </div>
+
+      {/* ================= 右侧地图 (Map) ================= */}
+      <div className="flex-1 relative h-full bg-gray-200">
+         {/* 把 focusedStation 传给地图 */}
+         <MapComponent focusedStation={focusedStation} />
+         
+         {/* 移动端提示: 如果是手机看，地图在下面 */}
+      </div>
+
     </div>
   );
 }

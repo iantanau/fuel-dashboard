@@ -11,12 +11,12 @@ def run_etl_pipeline():
     2. 下载数据 (Extract)
     3. 存入数据库 (Load)
     """
-    print(f"\n[{datetime.now()}] 🚀 自动化任务开始执行...")
+    print(f"\n[{datetime.now()}] 🚀 Starting ETL pipeline...")
     
     # 1. 获取 Token
     token = get_access_token()
     if not token:
-        print("❌ 任务终止：无法获取 Token")
+        print("❌ Task terminated: Unable to obtain Token")
         return
 
     # 2. 抓取数据 (这会生成/覆盖 nsw_fuel_data.json)
@@ -31,9 +31,9 @@ def run_etl_pipeline():
     # 3. 存入数据库
     try:
         load_data_to_db()
-        print(f"[{datetime.now()}] ✅ 自动化任务执行完成！等待下一次调度...")
+        print(f"[{datetime.now()}] ✅ Automation task completed successfully! Waiting for next scheduled run...")
     except Exception as e:
-        print(f"❌ 入库阶段出错: {e}")
+        print(f"❌ Error in Load stage: {e}")
 
 if __name__ == "__main__":
     # 手动测试一次

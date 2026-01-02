@@ -96,11 +96,6 @@ def get_stats():
 
         for p in cheapest:
             station = session.query(Station).filter_by(code=p.station_code).first()
-            
-            # 记录最新的时间戳
-            if latest_update is None or (p.last_updated and p.last_updated > latest_update):
-                latest_update = p.last_updated
-
             result.append({
                 "price": p.price,
                 "fuel_type": p.fuel_type,
@@ -108,11 +103,19 @@ def get_stats():
                 "address": station.address if station else "",
                 "updated": p.last_updated
             })
-            
+        
+        # 查询整个数据库中，最新的“抓取时间” (captured_at)
+        latest_capture = session.query(Price.captured_at)\
+            .order_by(Price.captured_at.desc())\
+            .first()
+        
+        # 提取时间 (如果是空库，就用当前时间)
+        system_time = latest_capture[0] if latest_capture else datetime.now()
+
         return jsonify({
             "title": f"Cheapest {target_fuel}",
             "cheapest_5": result,
-            "data_updated_at": latest_update # 返回给前端显示
+            "data_updated_at": system_time # 返回给前端显示
         })
     finally:
         session.close()

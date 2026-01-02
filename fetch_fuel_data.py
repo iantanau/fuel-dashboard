@@ -38,18 +38,18 @@ def get_access_token():
         if response.status_code == 200:
             token_data = response.json()
             access_token = token_data.get("access_token")
-            print(f"成功获取 Token! (前10位): {access_token[:10]}...")
+            print(f"Successfully obtained Token! (first 10 chars): {access_token[:10]}...")
             return access_token
         else:
-            print(f"获取 Token 失败。状态码: {response.status_code}")
-            print(f"错误信息: {response.text}")
+            print(f"Failed to get Token. Status Code: {response.status_code}")
+            print(f"Error Message: {response.text}")
             return None
     except Exception as e:
-        print(f"网络请求出错: {e}")
+        print(f"Request error: {e}")
         return None
 
 def fetch_fuel_data(token):
-    print("\n正在尝试下载油价数据...")
+    print("\nAttempting to fetch fuel data...")
     
     # 获取数据 URL
     target_url = "https://api.onegov.nsw.gov.au/FuelPriceCheck/v1/fuel/prices"
@@ -74,24 +74,24 @@ def fetch_fuel_data(token):
     }
 
     try:
-        print(f"请求 URL: {target_url}")
+        print(f"Request URL: {target_url}")
         response = requests.get(target_url, headers=headers, params=params)
         
         if response.status_code == 200:
-            print("✅ 获取信息成功！！")
+            print("✅ Successfully fetched fuel data!")
             data = response.json()
             
             import json
             with open("nsw_fuel_data.json", "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
-            print("数据已保存到 nsw_fuel_data.json")
+            print("Data saved to nsw_fuel_data.json")
             
         else:
-            print(f"❌ 获取信息失败。状态码: {response.status_code}")
-            print(f"错误信息: {response.text}")
+            print(f"❌ Failed to fetch fuel data. Status Code: {response.status_code}")
+            print(f"Error Message: {response.text}")
 
     except Exception as e:
-        print(f"代码出错: {e}")
+        print(f"Error code: {e}")
 
 if __name__ == "__main__":
     # 执行流程

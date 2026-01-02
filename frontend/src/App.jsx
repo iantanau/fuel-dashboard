@@ -10,7 +10,7 @@ function App() {
   // 核心状态：用户当前选择的燃油类型
   const [selectedFuel, setSelectedFuel] = useState("E10");
 
-  // 支持的燃油列表 (你可以根据需要增减)
+  // 支持的燃油列表 (可以根据需要增减)
   const fuelTypes = ["E10", "U91", "P95", "P98", "Diesel", "LPG", "EV"];
 
   // 获取数据的函数
@@ -33,10 +33,31 @@ function App() {
     fetchStats();
   }, [selectedFuel]);
 
-  // 时间格式化工具
+  // 时间格式化并转换当地时区工具
   const formatTime = (isoString) => {
     if (!isoString) return "Waiting Data...";
-    return new Date(isoString).toLocaleString();
+    
+    // 1. 创建 Date 对象
+    let dateString = new Date(isoString);
+    // 处理没有时区标识的情况，全部假设为 UTC 时间
+    if (typeof dateString === 'string' && !dateString.endsWith('Z')) {
+        dateString += 'Z';
+    }
+
+    // 2. 转换
+    let date = new Date(dateString);
+    if (isNaN(date.getTime())) return isoString;
+
+    // 2. 使用 Intl.DateTimeFormat 获取浏览器所在地的本地格式
+    return new Intl.DateTimeFormat('en-AU', {
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false, 
+      timeZoneName: 'short'
+    }).format(date);
   };
 
   return (

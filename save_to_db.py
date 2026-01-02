@@ -2,7 +2,7 @@
 import json
 from sqlalchemy.orm import sessionmaker
 from models import init_db, Station, Price
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def load_data_to_db():
     # 1. 初始化数据库连接
@@ -15,17 +15,17 @@ def load_data_to_db():
         with open("nsw_fuel_data.json", "r", encoding="utf-8") as f:
             data = json.load(f)
     except FileNotFoundError:
-        print("错误：找不到 nsw_fuel_data.json，请先运行 fetch_fuel_data.py")
+        print("Error: nsw_fuel_data.json file not found. Please run the data download script first.")
         return
 
-    print("开始处理数据...")
+    print("Start processing data...")
 
     # 3. 处理站点数据 (Stations)
     # NSW API 返回的结构里，stations 是一个列表
     stations_data = data.get("stations", [])
     prices_data = data.get("prices", [])
 
-    print(f"找到 {len(stations_data)} 个加油站，{len(prices_data)} 条价格记录。")
+    print(f"Found {len(stations_data)} stations and {len(prices_data)} price records.")
 
     # --- 存入加油站 ---
     for item in stations_data:
@@ -52,9 +52,9 @@ def load_data_to_db():
             )
             session.add(new_station)
     
-    # 提交一次，确保加油站都在库里了，后面存价格才不会报错
+    # 提交一次，确保加油站都在库里
     session.commit()
-    print("加油站数据处理完毕。")
+    print("Petrol stations data saved.")
 
     # --- 存入价格 ---
     for item in prices_data:
@@ -62,21 +62,27 @@ def load_data_to_db():
         f_type = item.get("fueltype")
         price_val = item.get("price")
         
-        # 处理时间字符串 (NSW 的时间格式可能需要调整)
-        # 假设它是 standard ISO 或者我们需要简单处理
-        # 这里暂时只存当前抓取时间，或者可以解析 item.get("lastupdated")
-        
+        # 获取API给出的时间
+        api_time_str = item.get("lastupdated")
+
+        # 尝试解析 API 时间，如果解析失败就用当前时间
+        try:
+            official_update_time = datetime.strptime(api_time_str, "%d/%m/%Y %H:%M:%S")
+        except (ValueError, TypeError):
+            official_update_time = datetime.now()
+
         # 创建价格记录
         new_price = Price(
             station_code=s_code,
             fuel_type=f_type,
             price=price_val,
-            last_updated=datetime.now() # 暂时用当前时间，你可以后续优化解析 API 的时间
+            last_updated=official_update_time,              # 解析 API 的时间
+            captured_at = datetime.utcnow()                 # 当前时间的 UTC
         )
         session.add(new_price)
 
     session.commit()
-    print("🎉 成功！所有数据已存入 fuel.db 数据库。")
+    print("🎉 Successfully saved all data to the database.")
     session.close()
 
 if __name__ == "__main__":

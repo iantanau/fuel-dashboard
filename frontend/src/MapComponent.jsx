@@ -6,7 +6,6 @@ import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// 修复 Leaflet 图标
 let DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
@@ -19,15 +18,27 @@ const MapComponent = () => {
     const [stations, setStations] = useState([]);
 
     useEffect(() => {
-        // 请求 API
         axios.get('http://127.0.0.1:5000/api/stations')
             .then(res => {
                 setStations(res.data);
             })
-            .catch(err => console.error("Map load failed:", err));
+            .catch(err => console.error("Error fetching stations:", err));
     }, []);
 
-    // 默认地图中心 (悉尼)
+    // --- 关键：添加时间格式化函数 (和 App.jsx 保持一致) ---
+    const formatTime = (isoString) => {
+        if (!isoString) return "N/A";
+        let date = new Date(isoString);
+        if (isNaN(date.getTime())) return isoString;
+
+        return new Intl.DateTimeFormat('en-AU', {
+          month: '2-digit', day: '2-digit',     // 地图弹窗空间小，我们可以不显示年份
+          hour: '2-digit', minute: '2-digit',
+          hour12: false,
+          // timeZoneName: 'short'              // 地图里空间小，可以去掉时区后缀，或者保留看你喜好
+        }).format(date);
+    };
+
     const centerPosition = [-33.8688, 151.2093]; 
 
     return (
@@ -48,24 +59,11 @@ const MapComponent = () => {
                 >
                     <Popup>
                         <div className="min-w-[200px] p-1">
-                            {/* 弹窗标题 */}
                             <div className="border-b border-gray-200 pb-2 mb-2">
                                 <h3 className="font-bold text-gray-900 text-sm">{station.name}</h3>
-                                <div className="text-xs text-gray-500 flex justify-between mt-1">
-                                    <span>{station.brand}</span>
-                                    {/* 简单的导航链接 (可选) */}
-                                    <a 
-                                        href={`https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}`} 
-                                        target="_blank" 
-                                        rel="noreferrer"
-                                        className="text-blue-500 hover:underline"
-                                    >
-                                        导航
-                                    </a>
-                                </div>
+                                <p className="text-xs text-gray-500">{station.brand}</p>
                             </div>
 
-                            {/* 弹窗内容：所有油价列表 */}
                             <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar">
                                 {station.prices && station.prices.length > 0 ? (
                                     station.prices.map((p, idx) => (
@@ -80,12 +78,21 @@ const MapComponent = () => {
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-xs text-gray-400 italic text-center py-2">No Price Information</p>
+                                    <p className="text-xs text-gray-400 italic text-center py-2">No prices available</p>
                                 )}
                             </div>
                             
-                            <div className="mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-400 truncate">
-                                {station.address}
+                            {/* --- 底部显示该站点的最后更新时间 (Last Updated) --- */}
+                            <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-end">
+                                <span className="text-[10px] text-gray-400 max-w-[60%] truncate" title={station.address}>
+                                    {station.address}
+                                </span>
+                                <span className="text-[10px] text-blue-400 font-medium">
+                                    {/* 这里取价格列表里第一个元素的更新时间作为展示 */}
+                                    {station.prices && station.prices.length > 0 
+                                        ? formatTime(station.prices[0].updated) 
+                                        : ""}
+                                </span>
                             </div>
                         </div>
                     </Popup>

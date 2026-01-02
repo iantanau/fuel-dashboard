@@ -1,7 +1,7 @@
 # models.py
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship
-from datetime import datetime
+from datetime import datetime, timezone
 
 # 1. 定义基类
 Base = declarative_base()
@@ -28,12 +28,12 @@ class Station(Base):
 class Price(Base):
     __tablename__ = 'prices'
 
-    id = Column(Integer, primary_key=True, autoincrement=True) # 内部流水号
-    station_code = Column(String, ForeignKey('stations.code')) # 外键关联加油站
-    fuel_type = Column(String) # 如 "E10", "P98"
-    price = Column(Float)      # 如 179.9
-    last_updated = Column(DateTime) # NSW API 提供的更新时间
-    captured_at = Column(DateTime, default=datetime.now) # 抓取的时间
+    id = Column(Integer, primary_key=True, autoincrement=True)  # 内部流水号
+    station_code = Column(String, ForeignKey('stations.code'))  # 外键关联加油站
+    fuel_type = Column(String)                                  # 如 "E10", "P98"
+    price = Column(Float)                                       # 如 179.9
+    last_updated = Column(DateTime)                             # NSW API 提供的更新时间
+    captured_at = Column(DateTime, default=lambda: datetime.now(timezone.utc)) # 抓取的时间
 
     # 关联关系
     station = relationship("Station", back_populates="prices")
@@ -47,5 +47,5 @@ def init_db(db_name='fuel.db'):
     engine = create_engine(f'sqlite:///{db_name}')
     # 创建所有表
     Base.metadata.create_all(engine)
-    print(f"数据库 {db_name} 已创建/连接成功！")
+    print(f"Database {db_name} has been initialized.")
     return engine

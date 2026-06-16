@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 
@@ -34,6 +34,10 @@ class Price(Base):
     price = Column(Float)                                       # 如 179.9
     last_updated = Column(DateTime)                             # NSW API 提供的更新时间
     captured_at = Column(DateTime, default=lambda: datetime.utcnow()) # 抓取的时间
+
+    __table_args__ = (
+        UniqueConstraint('station_code', 'fuel_type', 'last_updated', name='_station_fuel_time_uc'),
+    )
 
     # 关联关系
     station = relationship("Station", back_populates="prices")

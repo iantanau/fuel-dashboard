@@ -5,6 +5,8 @@ A full-stack data visualization dashboard tracking real-time fuel prices across 
 ![Tech Stack](https://img.shields.io/badge/Tech-Full%20Stack-blue)
 ![Python](https://img.shields.io/badge/Backend-Flask%20%7C%20SQLAlchemy-green)
 ![React](https://img.shields.io/badge/Frontend-React%20%7C%20Tailwind-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 
 ## 🚀 Features
 

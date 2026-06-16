@@ -1,132 +1,131 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 from models import init_db, Station, Price
 from datetime import datetime, timedelta
 from collections import defaultdict
 
 app = Flask(__name__)
-# 允许所有跨域请求
+# 允许跨域
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# 初始化数据库连接
+# --- 数据库配置 ---
 engine = init_db()
-Session = sessionmaker(bind=engine)
+session_factory = sessionmaker(bind=engine)
+# 使用 scoped_session 确保线程安全
+Session = scoped_session(session_factory)
 
-def get_db_session():
-    return Session()
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    """
+    每次请求结束后自动关闭数据库连接，防止连接泄露
+    """
+    Session.remove()
 
 @app.route('/')
 def home():
-    return jsonify({"status": "online", "time": datetime.now()})
+    return jsonify({
+        "status": "online", 
+        "server_time_utc": datetime.utcnow().isoformat()
+    })
 
-# --- 核心接口 1: 获取地图数据 (含所有油号详情) ---
+# --- 核心接口 1: 获取地图数据 (所有站点及最新价格) ---
 @app.route('/api/stations', methods=['GET'])
 def get_stations():
-    session = get_db_session()
-    try:
-        # 1. 查所有站点
-        stations = session.query(Station).all()
+    # 1. 查所有站点
+    stations = Session.query(Station).all()
+    
+    # 2. 查最近 72 小时的有效价格
+    yesterday = datetime.utcnow() - timedelta(hours=72)
+    recent_prices = Session.query(Price).filter(
+        Price.captured_at >= yesterday,
+        Price.price > 10 # 过滤异常极低值
+    ).all()
+
+    # 3. 内存中归类：{ 'station_code': [price_info, ...] }
+    price_map = defaultdict(list)
+    for p in recent_prices:
+        price_map[p.station_code].append({
+            "type": p.fuel_type,
+            "price": p.price,
+            "updated": p.last_updated.isoformat() if p.last_updated else None
+        })
+
+    # 4. 组装结果
+    result = []
+    for s in stations:
+        station_prices = price_map.get(s.code, [])
+
+        # 如果这个加油站最近 24h 没有更新过价格，跳过（不显示过期油价）
+        if not station_prices:
+            continue
         
-        # 2. 查最近 24 小时的所有价格 (一次性查出，优化性能)
-        yesterday = datetime.utcnow() - timedelta(hours=24)
-        recent_prices = session.query(Price).filter(Price.captured_at >= yesterday).all()
+        # 确定主显示价格 (优先级: E10 > 列表第一个)
+        display_price = next((p['price'] for p in station_prices if p['type'] == 'E10'), station_prices[0]['price'])
 
-        # 3. 在内存中将价格按站点归类
-        # 结构: { 'station_code_1': [PriceObj, PriceObj...], ... }
-        price_map = defaultdict(list)
-        for p in recent_prices:
-            if p.price and p.price > 1: # 过滤脏数据
-                price_map[p.station_code].append({
-                    "type": p.fuel_type,
-                    "price": p.price,
-                    "updated": p.last_updated
-                })
+        result.append({
+            "code": s.code,
+            "name": s.name,
+            "address": s.address,
+            "latitude": s.latitude,
+            "longitude": s.longitude,
+            "brand": s.brand,
+            "prices": station_prices,
+            "display_price": display_price
+        })
+    
+    return jsonify(result)
 
-        # 4. 组装返回给前端的数据
-        result = []
-        for s in stations:
-            station_prices = price_map.get(s.code, [])
-
-            # 如果这个加油站没有 24小时内 的价格数据，直接跳过！
-            if not station_prices:
-                continue
-            
-            # 计算一个“主要价格”用于在地图图钉上直接显示 (优先显示 E10)
-            display_price = "N/A"
-            for p in station_prices:
-                if p['type'] == 'E10':
-                    display_price = p['price']
-                    break
-            # 如果没有 E10，就显示列表里的第一个价格
-            if display_price == "N/A" and station_prices:
-                display_price = station_prices[0]['price']
-
-            result.append({
-                "code": s.code,
-                "name": s.name,
-                "address": s.address,
-                "latitude": s.latitude,
-                "longitude": s.longitude,
-                "brand": s.brand,
-                "prices": station_prices,     # 这是一个列表，包含该站所有油价
-                "display_price": display_price # 这是一个数字，用于地图标点简略显示
-            })
-        
-        return jsonify(result)
-    finally:
-        session.close()
-
-# --- 核心接口 2: 排行榜 (支持筛选) ---
+# --- 核心接口 2: 排行榜 (使用 JOIN 优化性能) ---
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    session = get_db_session()
-    try:
-        # 获取前端传来的参数，默认为 E10
-        # 例如: /api/stats?fuel_type=Diesel
-        target_fuel = request.args.get('fuel_type', 'E10')
+    target_fuel = request.args.get('fuel_type', 'E10')
 
-        # 查询该油号最便宜的 5 个
-        cheapest = session.query(Price)\
-            .filter(Price.price > 10)\
-            .filter(Price.fuel_type == target_fuel)\
-            .order_by(Price.price.asc())\
-            .limit(5)\
-            .all()
-        
-        result = []
-        # 用来记录这批数据里最新的时间
-        latest_update = None 
-
-        for p in cheapest:
-            station = session.query(Station).filter_by(code=p.station_code).first()
-            result.append({
-                "price": p.price,
-                "fuel_type": p.fuel_type,
-                "station": station.name if station else "Unknown",
-                "address": station.address if station else "",
-                "lat": station.latitude if station else 0,
-                "lng": station.longitude if station else 0,
-                "updated": p.last_updated,
-                "code": p.station_code
-            })
-        
-        # 查询整个数据库中，最新的“抓取时间” (captured_at)
-        latest_capture = session.query(Price.captured_at)\
-            .order_by(Price.captured_at.desc())\
-            .first()
-        
-        # 提取时间 (如果是空库，就用当前时间)
-        system_time = latest_capture[0] if latest_capture else datetime.utcnow()
-
-        return jsonify({
-            "title": f"Cheapest {target_fuel}",
-            "cheapest_5": result,
-            "data_updated_at": system_time # 返回给前端显示
+    # 使用 JOIN 一次性查出价格和对应的加油站信息
+    # 过滤掉 24 小时之前的陈旧数据
+    one_day_ago = datetime.utcnow() - timedelta(hours=24)
+    
+    stats_query = Session.query(Price, Station)\
+        .join(Station, Price.station_code == Station.code)\
+        .filter(Price.fuel_type == target_fuel)\
+        .filter(Price.last_updated >= one_day_ago)\
+        .filter(Price.price > 10)\
+        .order_by(Price.price.asc())\
+        .limit(5)\
+        .all()
+    
+    cheapest_list = []
+    for p, s in stats_query:
+        cheapest_list.append({
+            "price": p.price,
+            "fuel_type": p.fuel_type,
+            "station": s.name,
+            "brand": s.brand,
+            "address": s.address,
+            "lat": s.latitude,
+            "lng": s.longitude,
+            "updated": p.last_updated.isoformat(),
+            "code": p.station_code
         })
-    finally:
-        session.close()
+    
+    # 获取系统最后一次成功抓取数据的时间
+    latest_capture = Session.query(Price.captured_at)\
+        .order_by(Price.captured_at.desc())\
+        .first()
+    
+    update_time = latest_capture[0].isoformat() if latest_capture else None
+
+    return jsonify({
+        "title": f"Cheapest {target_fuel} (Last 24h)",
+        "cheapest_5": cheapest_list,
+        "data_updated_at": update_time
+    })
 
 if __name__ == '__main__':
-    # 启动后端
-    app.run(debug=True, port=5000)
+    # --- 启动时自动运行一次 ETL ---
+    print("Initializing data... Please wait.")
+    # 开启一个新线程在后台偷偷抓取（服务器秒开，数据随后就到）
+    task = threading.Thread(target=run_etl_pipeline)
+    task.start()
+    # 生产环境建议使用 Gunicorn 启动
+    app.run(debug=True, host='0.0.0.0', port=5000)

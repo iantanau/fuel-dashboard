@@ -3,17 +3,21 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import L from 'leaflet';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // 解决 Leaflet 默认图标缺失问题
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
 let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
     iconSize: [25, 41],
-    iconAnchor: [12, 41]
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
 
 // --- 新增：地图控制器组件 ---
 // 作用：监听 focusedStation 的变化，然后控制地图移动
@@ -35,16 +39,14 @@ const MapController = ({ focusedStation }) => {
 };
 
 // --- 主地图组件 ---
-// 接收父组件传来的 focusedStation 属性
-const MapComponent = ({ focusedStation }) => {
+const MapComponent = ({ focusedStation, fuelType }) => {
     const [stations, setStations] = useState([]);
 
     // 创建一个引用字典，用来存储地图上所有的 Marker 实例
-    // 结构: { "station_id_1": markerInstance, "station_id_2": markerInstance ... }
     const markerRefs = useRef({});
 
     useEffect(() => {
-        axios.get('http://127.0.0.1:5000/api/stations')
+        axios.get(`${API_BASE_URL}/api/stations`)
             .then(res => {
                 setStations(res.data);
             })
@@ -56,10 +58,10 @@ const MapComponent = ({ focusedStation }) => {
         if (focusedStation && focusedStation.code) {
             const marker = markerRefs.current[focusedStation.code];
             if (marker) {
-                //稍微延迟一点点，等地图飞过去再打开，体验更好
+                // 稍微延迟一点点，等地图飞过去再打开，体验更好 (通常延迟 1.6s 略大于飞行动画)
                 setTimeout(() => {
                     marker.openPopup();
-                }, 500); 
+                }, 1600); 
             }
         }
     }, [focusedStation]);
@@ -71,10 +73,9 @@ const MapComponent = ({ focusedStation }) => {
         if (isNaN(date.getTime())) return isoString;
 
         return new Intl.DateTimeFormat('en-AU', {
-          month: '2-digit', day: '2-digit',     // 地图弹窗空间小，可以不显示年份
+          month: 'short', day: 'numeric',
           hour: '2-digit', minute: '2-digit',
           hour12: false,
-          // timeZoneName: 'short'              // 地图里空间小，可以去掉时区后缀，或者保留看你喜好
         }).format(date);
     };
 
@@ -86,7 +87,7 @@ const MapComponent = ({ focusedStation }) => {
             center={centerPosition} 
             zoom={12} 
             style={{ height: '100%', width: '100%'}}
-            zoomControl={false} // 隐藏默认的缩放按钮，让界面更干净 (可选)
+            zoomControl={false} 
         >
             <TileLayer
                 attribution='&copy; OpenStreetMap'
@@ -107,38 +108,41 @@ const MapComponent = ({ focusedStation }) => {
                     }}
                 >
                     <Popup>
-                        <div className="min-w-[200px] p-1">
-                            <div className="border-b border-gray-200 pb-2 mb-2">
-                                <h3 className="font-bold text-gray-900 text-sm">{station.name}</h3>
-                                <p className="text-xs text-gray-500">{station.brand}</p>
+                        <div className="min-w-[200px] p-1 font-sans">
+                            <div className="border-b border-gray-100 pb-2 mb-2">
+                                <h3 className="font-bold text-gray-900 text-sm leading-tight">{station.name}</h3>
+                                <p className="text-[10px] text-gray-400 mt-1 uppercase font-semibold tracking-wider">{station.brand}</p>
                             </div>
 
-                            <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar">
+                            <div className="space-y-1 max-h-[160px] overflow-y-auto custom-scrollbar">
                                 {station.prices && station.prices.length > 0 ? (
                                     station.prices.map((p, idx) => (
-                                        <div key={idx} className="flex justify-between items-center text-sm p-1.5 rounded hover:bg-gray-50 border border-transparent hover:border-gray-100">
-                                            <span className={`font-semibold ${p.type === 'E10' ? 'text-blue-600' : 'text-gray-700'}`}>
-                                                {p.type}
-                                            </span>
+                                        <div 
+                                            key={idx} 
+                                            className={`flex justify-between items-center text-xs p-1.5 rounded transition-all ${
+                                                p.type === fuelType 
+                                                ? 'bg-blue-600 text-white font-bold shadow-sm' 
+                                                : 'hover:bg-gray-50 text-gray-700'
+                                            }`}
+                                        >
+                                            <span>{p.type}</span>
                                             <div className="text-right">
-                                                <span className="font-bold text-gray-900">{p.price}</span>
-                                                <span className="text-[10px] text-gray-400 ml-0.5">c/L</span>
+                                                <span className="font-black">{p.price}</span>
+                                                <span className="text-[9px] opacity-70 ml-0.5">c/L</span>
                                             </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-xs text-gray-400 italic text-center py-2">暂无价格信息</p>
+                                    <p className="text-xs text-gray-400 italic text-center py-2">No price data</p>
                                 )}
                             </div>
                             
-                            <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-end">
-                                <span className="text-[10px] text-gray-400 leading-tight">
+                            <div className="mt-3 pt-2 border-t border-gray-100 flex flex-col gap-1">
+                                <span className="text-[9px] text-gray-400 leading-tight">
                                     {station.address}
                                 </span>
-                                <span className="text-[10px] text-blue-400 font-medium whitespace-nowrap ml-2">
-                                    {station.prices && station.prices.length > 0 
-                                        ? formatLocalTime(station.prices[0].updated) 
-                                        : ""}
+                                <span className="text-[9px] text-blue-400 font-bold">
+                                    Updated: {station.prices?.[0] ? formatLocalTime(station.prices[0].updated) : ""}
                                 </span>
                             </div>
                         </div>

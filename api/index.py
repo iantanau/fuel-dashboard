@@ -127,5 +127,5 @@ if __name__ == '__main__':
     # 开启一个新线程在后台偷偷抓取（服务器秒开，数据随后就到）
     task = threading.Thread(target=run_etl_pipeline)
     task.start()
-    # 生产环境建议使用 Gunicorn 启动
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # # 生产环境建议使用 Gunicorn 启动
+    # app.run(debug=True, host='0.0.0.0', port=5000)

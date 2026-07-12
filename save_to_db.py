@@ -1,7 +1,7 @@
 # save_to_db.py
 import json
 from sqlalchemy.orm import sessionmaker
-from models import init_db, Station, Price
+from api.models import init_db, Station, Price
 from datetime import datetime, timedelta
 
 def load_data_to_db():

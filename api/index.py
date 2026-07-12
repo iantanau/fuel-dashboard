@@ -1,9 +1,12 @@
+import threading
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sqlalchemy.orm import sessionmaker, scoped_session
-from models import init_db, Station, Price
+from api.models import init_db, Station, Price
 from datetime import datetime, timedelta
 from collections import defaultdict
+from etl_job import run_etl_pipeline
 
 app = Flask(__name__)
 # 允许跨域

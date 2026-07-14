@@ -13,6 +13,9 @@ load_dotenv()
 API_KEY = os.getenv("NSW_API_KEY")
 API_SECRET = os.getenv("NSW_API_SECRET")
 
+# Supabase online PostgreSQL Database
+DATABASE_URL = os.getenv('DATABASE_URL')
+
 # NSW API 换取 Token 地址
 TOKEN_URL = "https://api.onegov.nsw.gov.au/oauth/client_credential/accesstoken"
 

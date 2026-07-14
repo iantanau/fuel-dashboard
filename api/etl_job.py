@@ -1,4 +1,3 @@
-# etl_job.py
 import time
 from datetime import datetime
 from fetch_fuel_data import get_access_token, fetch_fuel_data

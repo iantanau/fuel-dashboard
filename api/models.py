@@ -1,4 +1,3 @@
-# models.py
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
@@ -46,10 +45,11 @@ class Price(Base):
         return f"<Price(type='{self.fuel_type}', price={self.price})>"
 
 # 4. 初始化数据库的函数
-def init_db(db_name='fuel.db'):
-    # 连接到 SQLite 数据库 (文件名为 fuel.db)
-    engine = create_engine(f'sqlite:///{db_name}')
-    # 创建所有表
+def init_db(connection_string='sqlite:///fuel.db'):
+    if not (connection_string.startswith("sqlite://") or connection_string.startswith("postgresql://")):
+            connection_string = f'sqlite:///{connection_string}'
+
+    engine = create_engine(connection_string)
     Base.metadata.create_all(engine)
-    print(f"Database {db_name} has been initialized.")
+    print(f"Database initialized with: {connection_string[:20]}...") 
     return engine

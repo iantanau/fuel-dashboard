@@ -4,15 +4,29 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from models import init_db, Station, Price
 from datetime import datetime, timedelta
 from collections import defaultdict
+import os
 
 app = Flask(__name__)
 # 允许跨域
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- 数据库配置 ---
-engine = init_db()
+# 从 Vercel 环境变量获取 DATABASE_URL
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+default_db_path = "fuel.db"
+
+# 兼容性处理：SQLAlchemy 要求必须是 postgresql:// 而不能是 postgres://
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# 如果没有环境变量，则默认使用本地临时 sqlite (Vercel 环境下是 /tmp/fuel.db)
+default_db = "/tmp/fuel.db" if os.environ.get('VERCEL') else "fuel.db"
+target_connection = DATABASE_URL if DATABASE_URL else default_db_path
+
+# 调用 models.py 里的 init_db
+engine = init_db(target_connection)
 session_factory = sessionmaker(bind=engine)
-# 使用 scoped_session 确保线程安全
 Session = scoped_session(session_factory)
 
 @app.teardown_appcontext

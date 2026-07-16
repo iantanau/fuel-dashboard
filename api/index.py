@@ -1,33 +1,21 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from sqlalchemy.orm import sessionmaker, scoped_session
-from models import init_db, Station, Price
+from models import Station, Price
+from init_db import init_db
 from datetime import datetime, timedelta
 from collections import defaultdict
-import os
+from database import SessionLocal
+from models import create_tables
+import threading
 
 app = Flask(__name__)
 # 允许跨域
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- 数据库配置 ---
-# 从 Vercel 环境变量获取 DATABASE_URL
-DATABASE_URL = os.getenv('DATABASE_URL')
+create_tables()
+Session = SessionLocal
 
-default_db_path = "fuel.db"
-
-# 兼容性处理：SQLAlchemy 要求必须是 postgresql:// 而不能是 postgres://
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-# 如果没有环境变量，则默认使用本地临时 sqlite (Vercel 环境下是 /tmp/fuel.db)
-default_db = "/tmp/fuel.db" if os.environ.get('VERCEL') else "fuel.db"
-target_connection = DATABASE_URL if DATABASE_URL else default_db_path
-
-# 调用 models.py 里的 init_db
-engine = init_db(target_connection)
-session_factory = sessionmaker(bind=engine)
-Session = scoped_session(session_factory)
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):

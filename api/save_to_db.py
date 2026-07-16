@@ -1,21 +1,14 @@
-import json
-from sqlalchemy.orm import sessionmaker
-from models import init_db, Station, Price
+from models import Station, Price
 from datetime import datetime, timedelta
+from database import SessionLocal
 
-def load_data_to_db():
+def load_data_to_db(data):
     # 1. 初始化数据库连接
-    engine = init_db()
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    session = SessionLocal()
 
-    # 2. 读取下载的 JSON 文件
-    try:
-        with open("nsw_fuel_data.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        print("❌ 错误: 找不到 nsw_fuel_data.json，请先运行抓取脚本。")
-        return
+    # 2. 读取下载的 data 变量
+    stations_data = data.get("stations", [])
+    prices_data = data.get("prices", [])
 
     print(f"[{datetime.now()}] 正在处理数据...")
 
@@ -110,6 +103,3 @@ def load_data_to_db():
     
     session.close()
     print(f"[{datetime.now()}] ETL 任务结束。\n")
-
-if __name__ == "__main__":
-    load_data_to_db()

@@ -83,18 +83,16 @@ def fetch_fuel_data(token):
         if response.status_code == 200:
             print("✅ Successfully fetched fuel data!")
             data = response.json()
-            
-            import json
-            with open("nsw_fuel_data.json", "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            print("Data saved to nsw_fuel_data.json")
+            return data
             
         else:
             print(f"❌ Failed to fetch fuel data. Status Code: {response.status_code}")
             print(f"Error Message: {response.text}")
+            return None
 
     except Exception as e:
         print(f"Error code: {e}")
+        return None
 
 if __name__ == "__main__":
     # 执行流程

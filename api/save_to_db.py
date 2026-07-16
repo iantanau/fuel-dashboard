@@ -1,6 +1,6 @@
-from models import Station, Price
+from api.models import Station, Price
 from datetime import datetime, timedelta
-from database import SessionLocal
+from api.database import SessionLocal
 
 def load_data_to_db(data):
     # 1. 初始化数据库连接

@@ -1,5 +1,3 @@
-# etl_job.py
-import time
 from datetime import datetime
 from fetch_fuel_data import get_access_token, fetch_fuel_data
 from save_to_db import load_data_to_db
@@ -18,20 +16,21 @@ def run_etl_pipeline():
     if not token:
         print("❌ Task terminated: Unable to obtain Token")
         return
-
-    # 2. 抓取数据 (这会生成/覆盖 nsw_fuel_data.json)
-    # 注意：你需要确保 fetch_fuel_data.py 里的 fetch_fuel_data 函数
-    # 会把数据写入文件，或者你可以修改它让它返回 data 对象。
-    # 鉴于我们之前的写法是存文件，这里直接调用即可。
-    fetch_fuel_data(token)
     
-    # 休息 2 秒，确保文件写入完成 (虽然通常不需要，但为了稳健)
-    time.sleep(2)
-
-    # 3. 存入数据库
     try:
-        load_data_to_db()
+
+        # 2. 获取 NSW Fuel API 数据并返回 Python Dictionary
+        data = fetch_fuel_data(token)
+
+        if not data:
+            print("❌ Failed to fetch fuel data.")
+            return
+
+        # 3. 存入数据库
+    
+        load_data_to_db(data)
         print(f"[{datetime.now()}] ✅ Automation task completed successfully! Waiting for next scheduled run...")
+    
     except Exception as e:
         print(f"❌ Error in Load stage: {e}")
 

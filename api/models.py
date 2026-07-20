@@ -1,10 +1,13 @@
-# models.py
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
+from database import engine
 
 # 1. 定义基类
 Base = declarative_base()
+
+def create_tables():
+    Base.metadata.create_all(bind=engine)
 
 # 2. 定义加油站表 (Station Model)
 class Station(Base):
@@ -44,12 +47,3 @@ class Price(Base):
 
     def __repr__(self):
         return f"<Price(type='{self.fuel_type}', price={self.price})>"
-
-# 4. 初始化数据库的函数
-def init_db(db_name='fuel.db'):
-    # 连接到 SQLite 数据库 (文件名为 fuel.db)
-    engine = create_engine(f'sqlite:///{db_name}')
-    # 创建所有表
-    Base.metadata.create_all(engine)
-    print(f"Database {db_name} has been initialized.")
-    return engine

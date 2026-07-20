@@ -1,5 +1,4 @@
 import requests
-import time
 import uuid
 from datetime import datetime
 import os
@@ -12,6 +11,9 @@ load_dotenv()
 # API Key 和 Secret
 API_KEY = os.getenv("NSW_API_KEY")
 API_SECRET = os.getenv("NSW_API_SECRET")
+
+# Supabase online PostgreSQL Database
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 # NSW API 换取 Token 地址
 TOKEN_URL = "https://api.onegov.nsw.gov.au/oauth/client_credential/accesstoken"
@@ -80,18 +82,16 @@ def fetch_fuel_data(token):
         if response.status_code == 200:
             print("✅ Successfully fetched fuel data!")
             data = response.json()
-            
-            import json
-            with open("nsw_fuel_data.json", "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            print("Data saved to nsw_fuel_data.json")
+            return data
             
         else:
             print(f"❌ Failed to fetch fuel data. Status Code: {response.status_code}")
             print(f"Error Message: {response.text}")
+            return None
 
     except Exception as e:
         print(f"Error code: {e}")
+        return None
 
 if __name__ == "__main__":
     # 执行流程

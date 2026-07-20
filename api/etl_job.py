@@ -1,6 +1,6 @@
 from datetime import datetime
-from api.fetch_fuel_data import get_access_token, fetch_fuel_data
-from api.save_to_db import load_data_to_db
+from fetch_fuel_data import get_access_token, fetch_fuel_data
+from save_to_db import load_data_to_db
 
 def run_etl_pipeline():
     """

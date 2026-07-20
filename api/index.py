@@ -1,12 +1,13 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from api.models import Station, Price
-from api.init_db import init_db
+from models import Station, Price
+from init_db import init_db
 from datetime import datetime, timedelta
 from collections import defaultdict
-from api.database import SessionLocal
-from api.models import create_tables
+from database import SessionLocal
+from models import create_tables
 import threading
+from etl_job import run_etl_pipeline
 
 app = Flask(__name__)
 # 允许跨域
@@ -130,4 +131,4 @@ if __name__ == '__main__':
     task = threading.Thread(target=run_etl_pipeline)
     task.start()
     # # 生产环境建议使用 Gunicorn 启动
-    # app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

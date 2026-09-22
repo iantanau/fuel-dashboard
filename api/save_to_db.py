@@ -1,10 +1,6 @@
-# save_to_db.py
 import json
 from sqlalchemy.orm import sessionmaker
-from api.models import init_db, Station, Price
-=======
 from models import Station, Price
->>>>>>> vercel-deployment:api/save_to_db.py
 from datetime import datetime, timedelta
 from database import SessionLocal
 

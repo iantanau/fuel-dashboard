@@ -1,11 +1,13 @@
+import os
 import threading
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sqlalchemy.orm import sessionmaker, scoped_session
-from api.models import init_db, Station, Price
+from models import Station, Price
 from datetime import datetime, timedelta
 from collections import defaultdict
+from init_db import init_db
 from etl_job import run_etl_pipeline
 
 app = Flask(__name__)
@@ -31,6 +33,17 @@ def home():
         "status": "online", 
         "server_time_utc": datetime.utcnow().isoformat()
     })
+
+@app.route('/api/refresh', methods=['GET'])
+def refresh():
+    expected = os.getenv("CRON_SECRET")
+    if expected:
+        auth = request.headers.get("Authorization", "")
+        if auth != f"Bearer {expected}":
+            return jsonify({"error": "unauthorized"}), 401
+
+    success = run_etl_pipeline()
+    return jsonify({"status": "ok" if success else "failed"}), (200 if success else 500)
 
 # --- 核心接口 1: 获取地图数据 (所有站点及最新价格) ---
 @app.route('/api/stations', methods=['GET'])
@@ -131,4 +144,4 @@ if __name__ == '__main__':
     task = threading.Thread(target=run_etl_pipeline)
     task.start()
     # # 生产环境建议使用 Gunicorn 启动
-    # app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

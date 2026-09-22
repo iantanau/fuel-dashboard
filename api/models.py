@@ -1,13 +1,9 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
-from database import engine
 
 # 1. 定义基类
 Base = declarative_base()
-
-def create_tables():
-    Base.metadata.create_all(bind=engine)
 
 # 2. 定义加油站表 (Station Model)
 class Station(Base):

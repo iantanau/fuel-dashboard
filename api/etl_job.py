@@ -15,7 +15,7 @@ def run_etl_pipeline():
     token = get_access_token()
     if not token:
         print("❌ Task terminated: Unable to obtain Token")
-        return
+        return False
     
     try:
 
@@ -24,15 +24,17 @@ def run_etl_pipeline():
 
         if not data:
             print("❌ Failed to fetch fuel data.")
-            return
+            return False
 
         # 3. 存入数据库
     
         load_data_to_db(data)
         print(f"[{datetime.now()}] ✅ Automation task completed successfully! Waiting for next scheduled run...")
+        return True
     
     except Exception as e:
         print(f"❌ Error in Load stage: {e}")
+        return False
 
 if __name__ == "__main__":
     # 手动测试一次

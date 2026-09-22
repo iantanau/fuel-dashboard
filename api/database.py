@@ -9,7 +9,7 @@ load_dotenv()
 # 优先读取环境变量
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# 本地开发时如果没有 DATABASE_URL，则使用 SQLite
+# Local development fallback. Vercel must provide DATABASE_URL in Project Settings.
 if not DATABASE_URL:
     DATABASE_URL = "sqlite:///fuel.db"
 
@@ -24,7 +24,8 @@ if DATABASE_URL.startswith("postgres://"):
 # 创建 Engine
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    pool_recycle=300
 )
 
 # Session Factory

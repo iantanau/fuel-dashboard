@@ -4,7 +4,7 @@ import { Fuel, MapPin, TrendingDown, Clock, RefreshCw, ChevronRight, AlertCircle
 import MapComponent from './MapComponent';
 
 // 建议：使用环境变量，方便切换本地和生产地址
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://127.0.0.1:5000');
 
 function App() {
   const [stats, setStats] = useState(null);

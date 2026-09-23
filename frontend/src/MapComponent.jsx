@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import axios from 'axios';
 import L from 'leaflet';
+import { getStations } from './staticData';
 
 // 解决 Leaflet 默认图标缺失问题
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -17,7 +17,6 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://127.0.0.1:5000');
 
 // --- 新增：地图控制器组件 ---
 // 作用：监听 focusedStation 的变化，然后控制地图移动
@@ -46,11 +45,9 @@ const MapComponent = ({ focusedStation, fuelType }) => {
     const markerRefs = useRef({});
 
     useEffect(() => {
-        axios.get(`${API_BASE_URL}/api/stations`)
-            .then(res => {
-                setStations(res.data);
-            })
-            .catch(err => console.error("Error fetching stations:", err));
+        getStations()
+            .then(setStations)
+            .catch(err => console.error("Error loading stations:", err));
     }, []);
 
     // 监听 focusedStation 变化，自动打开气泡
